@@ -50,19 +50,18 @@ Perform the tasks below to enable Control Tower to automatically register your a
 
     Fill in the missing parameter values 
 
-      
-   | Parameter             | Description |
+| Parameter             | Description |
 | ----------------------- | -------- |
 | FalconClientID        | Falcon API Key Client ID         |
 | FalconSecret          | Falcon API Key Secret          || 
- | CSCloud               | CrowdStrike Cloud (us1, us-2 or eu-1)   | 
+| CSCloud               | CrowdStrike Cloud (us1, us-2 or eu-1)   | 
 | EnableIOA             | Enable IOA Scanning (Adds EventBridge forwarding Rules) |                            
- | UseExistingCloudtrail | Disables Cloudtrail forwarding (No recon activity associated with attack)    |
+| UseExistingCloudtrail | Disables Cloudtrail forwarding (No recon activity associated with attack)    |
 | QSS3BucketName        | Quick Start S3 Bucket Name (Do not change unless you are modifying the template and staging your own files)  |
 | QSS3BucketRegion      | Quick Start S3 bucket region (Do not change unless you are modifying the template and staging your own files) |
 | S3KeyPrefix           | Quick Start S3 Key Prefix (Do not change unless you are modifying the template and staging your own files)   |
- | CTAdminRoleName       | Control Tower StackSet adminisistration Rolename (Do not change unless using custom role names)              | 
- | CTExecutionRoleArn    | Control Tower StackSet Execution Rolename   (Do not change unless using custom role names)                   | 
+| CTAdminRoleName       | Control Tower StackSet adminisistration Rolename (Do not change unless using custom role names)              | 
+| CTExecutionRoleArn    | Control Tower StackSet Execution Rolename   (Do not change unless using custom role names)                   | 
 
 
    The CloudFormation template will create the following resources in the account:
