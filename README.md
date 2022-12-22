@@ -1,2 +1,3 @@
-# AWS-Control-Tower-Horizon
-Control Tower templates for Horizon
+# CrowdStrike with AWS Control Tower 
+
+Setup AWS Control Tower to register new accounts with CrowdStrike Horizon.

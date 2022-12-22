@@ -1,0 +1,640 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CrowdStrike Horizon (CSPM) Org root account template (qs-1tjh1ciea)
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: CrowdStrike Params From API Response
+        Parameters:
+          - RoleName
+          - ExternalID
+          - CSEventBusName
+      - Label:
+          default: CrowdStrike Region Specific Params
+        Parameters:
+          - CSRoleName
+          - CSAccountNumber
+      - Label:
+          default: CrowdStrike Setup Options
+        Parameters:
+          - EnableIOA
+    ParameterLabels:
+      RoleName:
+        default: Rolename supplied by CrowdStrike
+      ExternalID:
+        default: ExternalID supplied by CrowdStrike
+      CSRoleName:
+        default: Determined by Region your CID is in
+      CSAccountNumber:
+        default: CrowdStrike customer facing account for EventBridge and S3
+      EnableIOA:
+        default: Enable IOA Scanning (Adds EventBridge forwarding Rules)
+      CSEventBusName:
+        default: CrowdStrike EventBridge
+Parameters:
+  RoleName:
+    Description: Read-only role for CrowdStrike Falcon CSPM
+    Type: String
+    MinLength: '1'
+  ExternalID:
+    Description: External ID for created role
+    Type: String
+    MinLength: '2'
+  CSRoleName:
+    Description: Name of Crowdstrike assuming role
+    Type: String
+    MinLength: '10'
+  CSAccountNumber:
+    Description: Crowdstrike account number
+    Type: String
+    MinLength: '12'
+    MaxLength: '12'
+  EnableIOA:
+    Description: true will add eventbridge rules and optional additional org wide cloudtrail
+    Type: String
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Default: 'true'
+  CSEventBusName:
+    Description: CrowdStrike Event Bridge Name
+    Type: String
+Conditions:
+  ShouldCreateIOAResources: !Equals
+    - true
+    - !Ref 'EnableIOA'
+Resources:
+  #
+  # IAM Role the CrowdStrike will assume to discover resources in the account
+  #
+  CrowdStrikeCSPMRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - EIAMPolicyWildcardResource # Role has * to allow for future service monitoring without stack updates
+            - EIAMPolicyActionWildcard # Role has * to allow for future service monitoring without stack updates
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: CrowdSrike readonly role for CSPM monitoring.
+          - id: W28
+            reason: Rolename returned by CrowdStrike during setup (fixed name required).
+          - id: W76
+            reason: CrowdSrike readonly role for CSPM monitoring.
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Join
+                - ''
+                - - 'arn:aws:iam::'
+                  - !Ref 'CSAccountNumber'
+                  - :role/
+                  - !Ref 'CSRoleName'
+            Condition:
+              StringEquals:
+                sts:ExternalId: !Ref 'ExternalID'
+            Action:
+              - sts:AssumeRole
+      RoleName: !Ref 'RoleName'
+      Policies:
+        - PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Resource: '*'
+                Action:
+                  - access-analyzer:GetAnalyzedResource
+                  - access-analyzer:GetAnalyzer
+                  - access-analyzer:GetArchiveRule
+                  - access-analyzer:GetFinding
+                  - access-analyzer:ListAnalyzedResources
+                  - access-analyzer:ListAnalyzers
+                  - access-analyzer:ListArchiveRules
+                  - access-analyzer:ListFindings
+                  - access-analyzer:ListTagsForResource
+                  - acm:Describe*
+                  - acm:List*
+                  - acm-pca:GetPolicy
+                  - acm-pca:ListCertificateAuthorities
+                  - application-autoscaling:Describe*
+                  - appmesh:Describe*
+                  - appmesh:List*
+                  - appsync:List*
+                  - athena:GetWorkGroup
+                  - athena:List*
+                  - autoscaling:Describe*
+                  - backup:GetBackupVaultAccessPolicy
+                  - backup:List*
+                  - batch:DescribeComputeEnvironments
+                  - batch:DescribeJobDefinitions
+                  - chime:List*
+                  - cloud9:Describe*
+                  - cloud9:ListEnvironments
+                  - clouddirectory:ListDirectories
+                  - cloudformation:DescribeStack*
+                  - cloudformation:GetTemplate
+                  - cloudformation:ListStack*
+                  - cloudformation:GetStackPolicy
+                  - cloudformation:Describe*
+                  - cloudformation:List*
+                  - cloudfront:Get*
+                  - cloudfront:List*
+                  - cloudhsm:ListHapgs
+                  - cloudhsm:ListHsms
+                  - cloudhsm:ListLunaClients
+                  - cloudtrail:Describe*
+                  - cloudtrail:Get*
+                  - cloudtrail:List*
+                  - cloudtrail:LookupEvents
+                  - cloudwatch:Describe*
+                  - cloudwatch:Get*
+                  - cloudwatch:List*
+                  - codebuild:GetResourcePolicy
+                  - codebuild:ListProjects
+                  - codebuild:ListReportGroups
+                  - codecommit:BatchGetRepositories
+                  - codecommit:GetBranch
+                  - codecommit:GetObjectIdentifier
+                  - codecommit:List*
+                  - codedeploy:Batch*
+                  - codedeploy:List*
+                  - codepipeline:ListPipelines
+                  - codestar:Describe*
+                  - codestar:List*
+                  - cognito-identity:ListIdentityPools
+                  - cognito-idp:ListUserPools
+                  - cognito-sync:Describe*
+                  - cognito-sync:List*
+                  - comprehend:List*
+                  - config:Batch*
+                  - config:Describe*
+                  - config:Get*
+                  - config:List*
+                  - datapipeline:DescribeObjects
+                  - datapipeline:DescribePipelines
+                  - datapipeline:GetPipelineDefinition
+                  - datapipeline:ListPipelines
+                  - datapipeline:QueryObjects
+                  - datapipeline:ValidatePipelineDefinition
+                  - datasync:Describe*
+                  - datasync:List*
+                  - dax:Describe*
+                  - dax:ListTags
+                  - detective:Get*
+                  - detective:List*
+                  - directconnect:Describe*
+                  - directconnect:List*
+                  - dms:Describe*
+                  - dms:ListTagsForResource
+                  - ds:DescribeDirectories
+                  - dynamodb:Describe*
+                  - dynamodb:List*
+                  - ec2:Describe*
+                  - ec2:GetEbsEncryptionByDefault
+                  - ec2:GetEbsDefaultKmsKeyId
+                  - ecr:Describe*
+                  - ecr:List*
+                  - ecr:GetRegistryPolicy
+                  - ecr:GetRegistryScanningConfiguration
+                  - ecr:GetRepositoryPolicy
+                  - ecs:Describe*
+                  - ecs:List*
+                  - eks:DescribeCluster
+                  - eks:ListClusters
+                  - eks:Describe*
+                  - eks:List*
+                  - elasticache:Describe*
+                  - elasticache:List*
+                  - elasticbeanstalk:Describe*
+                  - elasticfilesystem:List*
+                  - elasticfilesystem:Describe*
+                  - elasticfilesystem:DescribeFileSystems
+                  - elasticfilesystem:DescribeMountTargetSecurityGroups
+                  - elasticfilesystem:DescribeMountTargets
+                  - elasticloadbalancing:Describe*
+                  - elasticmapreduce:Describe*
+                  - elasticmapreduce:ListClusters
+                  - elasticmapreduce:ListInstances
+                  - elasticmapreduce:GetBlockPublicAccessConfiguration
+                  - es:Describe*
+                  - es:ListDomainNames
+                  - events:Describe*
+                  - events:List*
+                  - firehose:Describe*
+                  - firehose:List*
+                  - fms:ListComplianceStatus
+                  - fms:ListPolicies
+                  - fsx:Describe*
+                  - fsx:List*
+                  - gamelift:ListBuilds
+                  - gamelift:ListFleets
+                  - glacier:DescribeVault
+                  - glacier:GetVaultAccessPolicy
+                  - glacier:ListVaults
+                  - globalaccelerator:Describe*
+                  - globalaccelerator:List*
+                  - glue:GetResourcePolicy
+                  - greengrass:List*
+                  - guardduty:Describe*
+                  - guardduty:Get*
+                  - guardduty:List*
+                  - iam:GenerateCredentialReport
+                  - iam:GenerateServiceLastAccessedDetails
+                  - iam:Get*
+                  - iam:List*
+                  - iam:SimulateCustomPolicy
+                  - iam:SimulatePrincipalPolicy
+                  - inspector:Describe*
+                  - inspector:Get*
+                  - inspector:List*
+                  - inspector:Preview*
+                  - iot:Describe*
+                  - iot:GetPolicy
+                  - iot:GetPolicyVersion
+                  - iot:List*
+                  - kinesis:Describe*
+                  - kinesis:List*
+                  - kinesisanalytics:ListApplications
+                  - kinesisvideo:Describe*
+                  - kinesisvideo:List*
+                  - kms:Describe*
+                  - kms:Get*
+                  - kms:List*
+                  - lambda:GetAccountSettings
+                  - lambda:GetFunctionConfiguration
+                  - lambda:GetLayerVersionPolicy
+                  - lambda:GetPolicy
+                  - lambda:GetFunction
+                  - lambda:List*
+                  - license-manager:List*
+                  - lightsail:GetInstances
+                  - lightsail:GetLoadBalancers
+                  - logs:Describe*
+                  - logs:FilterLogEvents
+                  - logs:Get*
+                  - logs:ListTagsLogGroup
+                  - machinelearning:DescribeMLModels
+                  - mediaconnect:Describe*
+                  - mediaconnect:List*
+                  - mediastore:GetContainerPolicy
+                  - mediastore:ListContainers
+                  - opsworks:DescribeStacks
+                  - opsworks-cm:DescribeServers
+                  - organizations:List*
+                  - organizations:Describe*
+                  - quicksight:Describe*
+                  - quicksight:List*
+                  - ram:List*
+                  - rds:Describe*
+                  - rds:List*
+                  - rds:ListTagsForResource
+                  - redshift:Describe*
+                  - redshift:List*
+                  - rekognition:Describe*
+                  - rekognition:List*
+                  - robomaker:Describe*
+                  - robomaker:List*
+                  - route53:Get*
+                  - route53:List*
+                  - route53domains:Get*
+                  - route53domains:List*
+                  - route53resolver:List*
+                  - route53resolver:Get*
+                  - s3:DescribeJob
+                  - s3:GetAccelerateConfiguration
+                  - s3:GetAccessPoint
+                  - s3:GetAccessPointPolicy
+                  - s3:GetAccessPointPolicyStatus
+                  - s3:GetAccountPublicAccessBlock
+                  - s3:GetAccelerateConfiguration
+                  - s3:GetAnalyticsConfiguration
+                  - s3:GetBucket*
+                  - s3:GetEncryptionConfiguration
+                  - s3:GetInventoryConfiguration
+                  - s3:GetLifecycleConfiguration
+                  - s3:GetMetricsConfiguration
+                  - s3:GetObjectAcl
+                  - s3:GetObjectLegalHold
+                  - s3:GetObjectRetention
+                  - s3:GetObjectTagging
+                  - s3:GetObjectVersion
+                  - s3:GetObjectVersionAcl
+                  - s3:GetObjectVersionForReplication
+                  - s3:GetObjectVersionTagging
+                  - s3:GetReplicationConfiguration
+                  - s3:ListAccessPoints
+                  - s3:ListAllMyBuckets
+                  - s3:ListBucketVersions
+                  - s3:ListJobs
+                  - sagemaker:Describe*
+                  - sagemaker:List*
+                  - schemas:GetResourcePolicy
+                  - schemas:ListRegistries
+                  - sdb:DomainMetadata
+                  - sdb:ListDomains
+                  - secretsmanager:GetResourcePolicy
+                  - secretsmanager:ListSecrets
+                  - secretsmanager:ListSecretVersionIds
+                  - securityhub:Describe*
+                  - securityhub:Get*
+                  - securityhub:List*
+                  - serverlessrepo:GetApplicationPolicy
+                  - serverlessrepo:List*
+                  - servicequotas:Get*
+                  - servicequotas:List*
+                  - ses:GetIdentityDkimAttributes
+                  - ses:GetIdentityPolicies
+                  - ses:GetIdentityVerificationAttributes
+                  - ses:Describe*
+                  - ses:ListIdentities
+                  - ses:ListIdentityPolicies
+                  - ses:ListVerifiedEmailAddresses
+                  - ses:ListConfigurationSets
+                  - ses:ListReceiptRuleSets
+                  - ses:ListIdentities
+                  - shield:Describe*
+                  - shield:List*
+                  - snowball:ListClusters
+                  - snowball:ListJobs
+                  - sns:Get*
+                  - sns:ListPlatformApplications
+                  - sns:ListSubscriptions
+                  - sns:ListTagsForResource
+                  - sns:ListTopics
+                  - sqs:Get*
+                  - sqs:List*
+                  - ssm:Describe*
+                  - ssm:GetAutomationExecution
+                  - ssm:ListDocuments
+                  - sso:DescribePermissionsPolicies
+                  - ssm:List*
+                  - ssm:GetAutomationExecution
+                  - ssm:GetConnectionStatus
+                  - ssm:GetDefaultPatchBaseline
+                  - ssm:GetDeployablePatchSnapshotForInstance
+                  - ssm:ListTagsForResource
+                  - ssm:GetServiceSetting
+                  - ssm:GetInventory
+                  - ssm:GetCommandInvocation
+                  - sso:DescribePermissionsPolicies
+                  - sso:List*
+                  - states:ListStateMachines
+                  - storagegateway:DescribeBandwidthRateLimit
+                  - storagegateway:DescribeCache
+                  - storagegateway:DescribeCachediSCSIVolumes
+                  - storagegateway:DescribeGatewayInformation
+                  - storagegateway:DescribeMaintenanceStartTime
+                  - storagegateway:DescribeNFSFileShares
+                  - storagegateway:DescribeSnapshotSchedule
+                  - storagegateway:DescribeStorediSCSIVolumes
+                  - storagegateway:DescribeTapeArchives
+                  - storagegateway:DescribeTapeRecoveryPoints
+                  - storagegateway:DescribeTapes
+                  - storagegateway:DescribeUploadBuffer
+                  - storagegateway:DescribeVTLDevices
+                  - storagegateway:DescribeWorkingStorage
+                  - storagegateway:List*
+                  - tag:GetResources
+                  - tag:GetTagKeys
+                  - transfer:Describe*
+                  - transfer:List*
+                  - translate:List*
+                  - trustedadvisor:Describe*
+                  - waf:Get*
+                  - waf:List*
+                  - waf-regional:Get*
+                  - waf-regional:List*
+                  - wafv2:Describe*
+                  - wafv2:Get*
+                  - wafv2:List*
+                  - workspaces:Describe*
+              - Effect: Allow
+                Action:
+                  - apigateway:GET
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:apigateway:*::/apis'
+                  - !Sub 'arn:${AWS::Partition}:apigateway:*::/apis/*/stages'
+                  - !Sub 'arn:${AWS::Partition}:*::/apis/*/stages/*'
+                  - !Sub 'arn:${AWS::Partition}:*::/apis/*/routes'
+                  - !Sub 'arn:${AWS::Partition}:apigateway:*::/restapis'
+                  - !Sub 'arn:${AWS::Partition}:apigateway:*::/restapis/*/authorizers'
+                  - !Sub 'arn:${AWS::Partition}:apigateway:*::/restapis/*/authorizers/*'
+                  - !Sub 'arn:${AWS::Partition}:apigateway:*::/restapis/*/documentation/versions'
+                  - !Sub 'arn:${AWS::Partition}:apigateway:*::/restapis/*/resources'
+                  - !Sub 'arn:${AWS::Partition}:apigateway:*::/restapis/*/resources/*'
+                  - !Sub 'arn:${AWS::Partition}:apigateway:*::/restapis/*/resources/*/methods/*'
+                  - !Sub 'arn:${AWS::Partition}:apigateway:*::/restapis/*/stages'
+                  - !Sub 'arn:${AWS::Partition}:apigateway:*::/restapis/*/stages/*'
+                  - !Sub 'arn:${AWS::Partition}:apigateway:*::/vpclinks'
+          PolicyName: cspm_config
+  #
+  # IAM Role used to forward EventBridge event to CrowdStrike
+  #
+  CrowdStrikeCSPMEventBridge:
+    Type: AWS::IAM::Role
+    Condition: ShouldCreateIOAResources
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: Rolename returned by CrowdStrike during setup (fixed name required).
+    Properties:
+      RoleName: CrowdStrikeCSPMEventBridge
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+      Policies:
+        - PolicyName: eventbridge-put-events
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Resource: !Sub 'arn:${AWS::Partition}:events:*:*:event-bus/cs-*'
+                Action:
+                  - events:PutEvents
+  #
+  # IAM role used by lambda to create EventBridge Rules
+  #
+  CrowdStrikeEventBridgeRuleRole:
+    Type: AWS::IAM::Role
+    Condition: ShouldCreateIOAResources
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: Rolename returned by CrowdStrike during setup (fixed name required).
+          - id: W11
+            reason: Required for EventBridge Rule creation.
+    Properties:
+      RoleName: CrowdStrikeCSPMEventBridgeCreation
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action: sts:AssumeRole
+            Principal:
+              Service: lambda.amazonaws.com
+            Effect: Allow
+            Sid: ''
+      Policies:
+        - PolicyName: registration
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:DeleteRolePolicy
+                  - iam:PutRolePolicy
+                  - iam:PassRole
+                Resource: !Sub 'arn:${AWS::Partition}:iam::*:role/CrowdStrikeCSPMEventBridge'
+                Effect: Allow
+              - Action:
+                  - ec2:DescribeRegions
+                  - events:PutPermission
+                  - events:RemovePermission
+                Resource: '*'
+                Effect: Allow
+              - Action:
+                  - events:PutRule
+                  - events:DeleteRule
+                  - events:PutTargets
+                  - events:RemoveTargets
+                  - events:ListTargetsByRule
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:events:*:*:event-bus/default'
+                  - !Sub 'arn:${AWS::Partition}:events:*:*:rule/cs-*'
+                Effect: Allow
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+  #
+  # Lambda Function to create EventBridge forwarding rules
+  #
+  CrowdStrikeLambdaEventBridge:
+    Type: AWS::Lambda::Function
+    Condition: ShouldCreateIOAResources
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: Lambda custom resource only run during stack lifecycle events.
+          - id: W92
+            reason: Lambda custom resource only run during stack lifecycle events.
+    Properties:
+      Architectures:
+        - x86_64
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import boto3
+          import logging
+          import urllib3
+          import cfnresponse
+          
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+          http = urllib3.PoolManager()
+          SUCCESS = "SUCCESS"
+          FAILED = "FAILED"
+          
+          def lambda_handler(event, context):
+            EventBus = event['ResourceProperties']['EventBus']
+            CS_CURRENT_ACCOUNT = os.environ['CS_CURRENT_ACCOUNT']
+            RuleName = 'cs-cloudtrail-events-ioa-rule'
+            RoleArn = 'arn:aws:iam::' + CS_CURRENT_ACCOUNT + ':role/CrowdStrikeCSPMEventBridge'
+            ec2 = boto3.client('ec2')
+            regions = [region['RegionName'] for region in ec2.describe_regions()['Regions']]
+            print(regions)
+            status = cfnresponse.SUCCESS
+            if event['RequestType'] in ['Create']:
+                for region in regions:
+                    try:
+                        client = boto3.client('events', region_name=region)
+                        logger.info('Processing region {}'.format(region))
+                        response = client.put_rule(
+                            Name=RuleName,
+                            EventPattern='{"detail-type":["AWS API Call via CloudTrail"]}',
+                            State='ENABLED',
+                            RoleArn=RoleArn
+                        )
+                        put_response = client.put_targets(
+                            Rule=RuleName,
+                            Targets=[
+                                {
+                                    'Id': RuleName,
+                                    'Arn': EventBus,
+                                    'RoleArn': RoleArn
+                                }
+                            ]
+                        )
+                        if put_response['ResponseMetadata']['HTTPStatusCode'] == 200 and put_response['ResponseMetadata'][
+                                'HTTPStatusCode'] == 200:
+                                logger.info('Added Region {}'.format(region))
+                        else:
+                                logger.info('Problem adding Region {}'.format(region))
+                    except Exception as e:
+                        logger.info('Got execption {} processing region {}'.format(e, region))
+                        status = cfnresponse.FAILED
+                    finally:
+                      cfnresponse.send(event, context, status, {}, None)
+            elif event['RequestType'] in ['Delete']:
+                # Format post message
+                for region in regions:
+                    try:
+                        client = boto3.client('events', region_name=region)
+                        logger.debug('Processing region {}'.format(region))
+                        targets = client.list_targets_by_rule(
+                            Rule=RuleName
+                        )
+                        target_id=targets['Targets'][0]['Id']
+                        logger.info('target id is {} in region {}'.format(target_id, region))
+                        response = client.remove_targets(
+                            Rule=RuleName,
+                            Ids=[
+                                target_id,
+                            ]
+                        )
+                        logger.info('remove target response {}'.format(response))
+                        response = client.delete_rule(
+                            Name=RuleName
+                        )
+                    except Exception as e:
+                        logger.info('Got execption {} processing region {}'.format(e, region))
+                        status = cfnresponse.FAILED
+                    finally:
+                      cfnresponse.send(event, context, status, {}, None)
+        
+
+      Description: 'Create EventBridge Forwarding Rules in each region'
+      Timeout: 605
+      TracingConfig:
+        Mode: Active
+      Environment:
+        Variables:
+          CS_CURRENT_ACCOUNT: !Ref 'AWS::AccountId'
+          CS_DEBUG_ENABLED: 'true'
+      FunctionName: crowdstrike-eventbridge
+      Handler: index.lambda_handler
+      MemorySize: 128
+      PackageType: Zip
+      Role: !GetAtt 'CrowdStrikeEventBridgeRuleRole.Arn'
+      Runtime: python3.7
+  CrowdStrikeLambdaRegistrationInvoke:
+    Type: AWS::CloudFormation::CustomResource
+    Version: '1.0'
+    Condition: ShouldCreateIOAResources
+    Properties:
+      ServiceToken: !GetAtt 'CrowdStrikeLambdaEventBridge.Arn'
+      EventBus: !Sub 'arn:aws:events:us-east-1:${CSAccountNumber}:event-bus/${CSEventBusName}'
